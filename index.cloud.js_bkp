@@ -4,8 +4,6 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const admin = require('firebase-admin');
-const multer = require('multer');
 
 // Only one block for app, schemas, and models
 const app = express();
@@ -149,56 +147,16 @@ app.post('/tailor/profile', authenticateToken, async (req, res) => {
   }
 });
 
-const serviceAccount = require('../prototype1-658df-firebase-adminsdk-fbsvc-f1debc5761.json');
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  storageBucket: 'prototype1-658df.appspot.com'
-});
-const bucket = admin.storage().bucket();
-
-const upload = multer({ storage: multer.memoryStorage() });
-
-// Customer profile image upload to Firebase
-app.post('/customer/upload', upload.single('image'), authenticateToken, async (req, res) => {
-  const { mobile } = req.body;
-  if (!mobile || !req.file) return res.status(400).json({ message: 'Mobile and image required.' });
+// Upload tailor image
+app.post('/tailor/upload', async (req, res) => {
+  const { mobile, image } = req.body;
+  if (!mobile || !image) return res.status(400).json({ message: 'Mobile and image required.' });
   try {
-    const fileName = `customer_${mobile}_${Date.now()}.jpg`;
-    const file = bucket.file(fileName);
-    await file.save(req.file.buffer, {
-      metadata: { contentType: req.file.mimetype },
-      public: true,
-    });
-    const imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-    // Save image URL in MongoDB
-    const profile = await CustomerProfile.findOne({ mobile });
-    if (!profile) return res.status(404).json({ message: 'Profile not found.' });
-    profile.profileImage = imageUrl;
-    await profile.save();
-    res.status(200).json({ message: 'Image uploaded.', imageUrl });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error.' });
-  }
-});
-
-// Tailor profile image upload to Firebase
-app.post('/tailor/upload', upload.single('image'), authenticateToken, async (req, res) => {
-  const { mobile } = req.body;
-  if (!mobile || !req.file) return res.status(400).json({ message: 'Mobile and image required.' });
-  try {
-    const fileName = `tailor_${mobile}_${Date.now()}.jpg`;
-    const file = bucket.file(fileName);
-    await file.save(req.file.buffer, {
-      metadata: { contentType: req.file.mimetype },
-      public: true,
-    });
-    const imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-    // Save image URL in MongoDB
     const profile = await TailorProfile.findOne({ mobile });
     if (!profile) return res.status(404).json({ message: 'Profile not found.' });
-    profile.images.push(imageUrl);
+    profile.images.push(image); // image should be a URL or base64 string
     await profile.save();
-    res.status(200).json({ message: 'Image uploaded.', imageUrl });
+    res.status(200).json({ message: 'Image uploaded.' });
   } catch (err) {
     res.status(500).json({ message: 'Server error.' });
   }
