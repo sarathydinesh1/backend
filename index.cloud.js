@@ -109,25 +109,37 @@ app.get('/tailor/profile', async (req, res) => {
   }
 });
 
-// Upload gallery image
-app.post('/tailor/gallery/upload', async (req, res) => {
-  const { mobile, image } = req.body;
-  if (!mobile || !image) return res.status(400).json({ message: 'Mobile and image required.' });
+// Tailor gallery image upload to Firebase
+app.post('/tailor/gallery/upload', upload.single('image'), authenticateToken, async (req, res) => {
+  const { mobile } = req.body;
+  if (!mobile || !req.file) return res.status(400).json({ message: 'Mobile and image required.' });
   try {
-    const galleryImage = new TailorGallery({ mobile, image });
+    const fileName = `tailor_gallery_${mobile}_${Date.now()}.jpg`;
+    const file = bucket.file(fileName);
+    await file.save(req.file.buffer, {
+      metadata: { contentType: req.file.mimetype },
+      public: true,
+    });
+    const imageUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    // Save image URL in MongoDB
+    const galleryImage = new TailorGallery({ mobile, image: imageUrl });
     await galleryImage.save();
-    res.status(200).json({ message: 'Gallery image uploaded.' });
+    res.status(200).json({ message: 'Gallery image uploaded.', imageUrl });
   } catch (err) {
     res.status(500).json({ message: 'Server error.' });
   }
 });
 
-// Get all gallery images for a tailor
+// Get all gallery images for all tailors or a specific tailor
 app.get('/tailor/gallery', async (req, res) => {
   const { mobile } = req.query;
-  if (!mobile) return res.status(400).json({ message: 'Mobile number required.' });
   try {
-    const images = await TailorGallery.find({ mobile }).sort({ uploadedAt: -1 });
+    let images;
+    if (mobile) {
+      images = await TailorGallery.find({ mobile }).sort({ uploadedAt: -1 });
+    } else {
+      images = await TailorGallery.find({}).sort({ uploadedAt: -1 });
+    }
     res.status(200).json({ images });
   } catch (err) {
     res.status(500).json({ message: 'Server error.' });
