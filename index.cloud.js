@@ -67,6 +67,15 @@ function authenticateToken(req, res, next) {
   });
 }
 
+const serviceAccount = require('../prototype1-658df-firebase-adminsdk-fbsvc-f1debc5761.json');
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  storageBucket: 'prototype1-658df.appspot.com'
+});
+const bucket = admin.storage().bucket();
+
+const upload = multer({ storage: multer.memoryStorage() });
+
 // Get customer profile
 app.get('/customer/profile', async (req, res) => {
   const { mobile } = req.query;
@@ -160,15 +169,6 @@ app.post('/tailor/profile', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Server error.' });
   }
 });
-
-const serviceAccount = require('../prototype1-658df-firebase-adminsdk-fbsvc-f1debc5761.json');
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  storageBucket: 'prototype1-658df.appspot.com'
-});
-const bucket = admin.storage().bucket();
-
-const upload = multer({ storage: multer.memoryStorage() });
 
 // Customer profile image upload to Firebase
 app.post('/customer/upload', upload.single('image'), authenticateToken, async (req, res) => {
